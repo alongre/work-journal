@@ -3,29 +3,12 @@ import type { ActionFunctionArgs, MetaFunction } from '@remix-run/node';
 import { Form, Link, redirect, useFetcher, useLoaderData } from '@remix-run/react';
 import { format, parseISO } from 'date-fns';
 import { useEffect, useMemo, useRef } from 'react';
-import { z } from 'zod';
 import EntryForm from '~/components/EntryForm';
+import { EntryActionSchema, EntryLoaderSchema } from '~/types';
 
 export const meta: MetaFunction = () => {
 	return [{ title: 'New Remix App' }, { name: 'description', content: 'Welcome to Remix!' }];
 };
-
-export const EntryActionSchema = z.object({
-	// id: z.number(),
-	date: z.string(),
-	type: z.enum(['work', 'learning', 'other']),
-	text: z.string(),
-});
-
-const EntryLoaderSchema = z.array(
-	z.object({
-		id: z.number(),
-		date: z.string(),
-		type: z.enum(['work', 'learning', 'other']),
-		text: z.string(),
-	})
-);
-export type Entry = z.infer<typeof EntryLoaderSchema>;
 
 //* This is the function that will be called when the user submits the form.
 export async function action({ request }: ActionFunctionArgs) {
@@ -35,14 +18,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
 	try {
 		const info = Object.fromEntries(data.entries());
-		console.log({ info });
-
 		const formData = EntryActionSchema.parse(info);
-		console.log({ formData });
 		await db.entry.create({
 			data: {
 				date: new Date(formData.date),
-				// date: formData.date,
 				type: formData.type,
 				text: formData.text,
 			},
@@ -65,11 +44,11 @@ export async function loader() {
 	const entries = await db.entry.findMany({
 		orderBy: { date: 'desc' },
 	});
-	console.log({ entries });
 
+	// const entriesData = EntryLoaderSchema.parse(entries);
 	return entries.map((entry) => ({
 		...entry,
-		date: entry.date,
+		date: format(entry.date, 'yyyy-MM-dd'),
 	}));
 }
 
@@ -77,23 +56,10 @@ export default function Index() {
 	const fetcher = useFetcher();
 	let textAreaRef = useRef<HTMLTextAreaElement>(null);
 	const entries = useLoaderData<typeof loader>();
-	const entriesData = EntryLoaderSchema.parse(entries);
-
-	// type ttt = {[key in string]: typeof entries};
-	// const www: ttt = {
-	// 	"2021-10-10": [
-	// 		{
-	// 			date: new Date(),
-	// 			type: 'work',
-	// 			text: 'test',
-	// 			id: 1,
-	// 		},
-	// 	],
-	// };
-	// }
+	// const entriesData = EntryLoaderSchema.parse(entries);
 
 	const entriesByDate = useMemo(() => {
-		const weeks = entriesData.reduce<Record<string, typeof entries>>((acc, entry) => {
+		const weeks = entries.reduce<Record<string, typeof entries>>((acc, entry) => {
 			const key = entry.date;
 			acc[key] ||= [];
 
@@ -113,7 +79,7 @@ export default function Index() {
 				learning: weeks[date].filter((entry) => entry.type === 'learning'),
 				other: weeks[date].filter((entry) => entry.type === 'other'),
 			}));
-	}, [entriesData]);
+	}, [entries]);
 
 	useEffect(() => {
 		if (fetcher.state === 'idle' && textAreaRef.current) {

@@ -1,7 +1,7 @@
 import { useFetcher } from '@remix-run/react';
 import { format } from 'date-fns';
 import { useEffect, useRef } from 'react';
-import type { Entry } from '../routes/_index';
+import { Entry } from '../types';
 
 const WORK_OPTIONS = [
 	{
@@ -18,43 +18,40 @@ const WORK_OPTIONS = [
 	},
 ];
 
-export default function EntryForm({
-	entry = {
-		id: -1,
-		date: format(new Date(), 'yyyy-MM-dd'),
-		type: 'work',
-		text: 'This is a test',
-	},
-}: {
-	entry?: Entry[number];
-}) {
+export default function EntryForm(entry?: Entry) {
 	const fetcher = useFetcher();
-	let textAreaRef = useRef<HTMLTextAreaElement>(null);
-	const isNewEntry = entry.id === -1;
+	const textAreaRef = useRef<HTMLTextAreaElement>(null);
+	const isNewEntry = entry === undefined;
 
-	const hasSubmitted = fetcher.state === 'idle' && fetcher.data !== undefined;
+	const hasSubmitted = fetcher.state === 'idle' && isNewEntry;
 
 	useEffect(() => {
-		if (hasSubmitted && textAreaRef.current) {
+		if (fetcher.state === 'idle' && textAreaRef.current) {
 			textAreaRef.current.value = '';
 			textAreaRef.current.focus();
 		}
-	}, [hasSubmitted]);
+	}, [fetcher.state]);
 
 	return (
 		<fetcher.Form method='post'>
 			<fieldset disabled={fetcher.state !== 'idle'} className='disabled:opacity-60'>
 				<div className='italic'>{isNewEntry ? 'Create an Entry' : 'Edit Entry'}</div>
 				<div className='py-4'>
-					<input type='date' name='date' className='text-gray-700' required defaultValue={entry.date} />
+					<input
+						type='date'
+						name='date'
+						className='text-gray-700'
+						required
+						defaultValue={format(new Date(), 'yyyy-MM-dd')}
+					/>
 				</div>
 				<div className='mt-2 space-x-6'>
-					{WORK_OPTIONS.map((option) => (
+					{WORK_OPTIONS.map((option, index) => (
 						<label key={option.value} className='mr-4'>
 							<input
 								type='radio'
 								required
-								defaultChecked={entry.type === option.value ?? 'work'}
+								defaultChecked={index === 0}
 								name='type'
 								value={option.value}
 								className='mr-1'
