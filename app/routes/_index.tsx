@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import type { ActionFunctionArgs, MetaFunction } from '@remix-run/node';
-import { Form, Link, redirect, useFetcher, useLoaderData } from '@remix-run/react';
+import { Form, Link, redirect, useLoaderData } from '@remix-run/react';
 import { format, parseISO } from 'date-fns';
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import EntryForm from '~/components/EntryForm';
 import { EntryActionSchema, EntryLoaderSchema } from '~/types';
 
@@ -10,7 +10,12 @@ export const meta: MetaFunction = () => {
 	return [{ title: 'New Remix App' }, { name: 'description', content: 'Welcome to Remix!' }];
 };
 
-//* This is the function that will be called when the user submits the form.
+//#region Server Side
+/**
+ *  This is the function that will be called when the form is submitted.
+ * @param param0 the request object
+ * @returns a redirect to the home page
+ */
 export async function action({ request }: ActionFunctionArgs) {
 	const db = new PrismaClient();
 	const data = await request.formData();
@@ -34,32 +39,30 @@ export async function action({ request }: ActionFunctionArgs) {
 	}
 }
 
-const getFormatDate = (date: Date): string => {
-	return date.toString().substring(0, 10);
-};
-
-//* This is the function that will be called when the page is loaded or refreshed.
+/**
+ * This is the function that will be called when the page is loaded.
+ * @returns the data that will be passed to the loader function
+ */
 export async function loader() {
 	const db = new PrismaClient();
 	const entries = await db.entry.findMany({
 		orderBy: { date: 'desc' },
 	});
 
-	// const entriesData = EntryLoaderSchema.parse(entries);
 	return entries.map((entry) => ({
 		...entry,
 		date: format(entry.date, 'yyyy-MM-dd'),
 	}));
 }
 
+//#endregion
+
 export default function Index() {
-	const fetcher = useFetcher();
-	let textAreaRef = useRef<HTMLTextAreaElement>(null);
 	const entries = useLoaderData<typeof loader>();
-	// const entriesData = EntryLoaderSchema.parse(entries);
+	const entriesData = EntryLoaderSchema.parse(entries);
 
 	const entriesByDate = useMemo(() => {
-		const weeks = entries.reduce<Record<string, typeof entries>>((acc, entry) => {
+		const weeks = entriesData.reduce<Record<string, typeof entries>>((acc, entry) => {
 			const key = entry.date;
 			acc[key] ||= [];
 
@@ -79,23 +82,11 @@ export default function Index() {
 				learning: weeks[date].filter((entry) => entry.type === 'learning'),
 				other: weeks[date].filter((entry) => entry.type === 'other'),
 			}));
-	}, [entries]);
-
-	useEffect(() => {
-		if (fetcher.state === 'idle' && textAreaRef.current) {
-			textAreaRef.current.value = '';
-			textAreaRef.current.focus();
-		}
-	}, [fetcher.state]);
+	}, [entriesData]);
 
 	return (
-		<div className='mx-auto max-w-7xl p-6'>
-			<h1 className='text-4xl text-white'>Work journal</h1>
-			<p className='mt-3 text-xl text-gray-400'>Doings and learnings. Updated weekly.</p>
-
-			<div className='my-8 border p-3'>
-				<EntryForm />
-			</div>
+		<div className='mx-auto py-3  '>
+			<EntryForm />
 			<div className='mt-6 space-y-6'>
 				{entriesByDate.map((entry) => (
 					<div key={entry.date}>
